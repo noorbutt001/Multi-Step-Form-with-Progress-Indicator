@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="en" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multi-Step Form</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <script src="/_sdk/data_sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&amp;family=Playfair+Display:wght@600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    .step-panel { display: none; opacity: 0; transform: translateX(30px); }
+    .step-panel.active { display: block; animation: slideIn 0.4s ease forwards; }
+    .step-panel.exit-left { animation: slideOutLeft 0.3s ease forwards; }
+    .step-panel.exit-right { animation: slideOutRight 0.3s ease forwards; }
+    @keyframes slideIn { to { opacity: 1; transform: translateX(0); } }
+    @keyframes slideOutLeft { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(-30px); display: none; } }
+    @keyframes slideOutRight { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(30px); display: none; } }
+    .progress-fill { transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+    .field-error { animation: shake 0.4s ease; }
+    @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+    .toast-enter { animation: toastIn 0.4s ease forwards; }
+    .toast-exit { animation: toastOut 0.3s ease forwards; }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes toastOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-20px); } }
+    input:focus, textarea:focus, select:focus { outline: none; }
+  </style>
+  <style>body { box-sizing: border-box; }</style>
+ </head>
+ <body class="h-full" style="font-family: 'DM Sans', sans-serif; margin: 0;">
+  <div id="app-wrapper" class="h-full w-full overflow-auto" style="background: #0f1729;"><!-- Decorative bg -->
+   <div style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;">
+    <div style="position:absolute;top:-20%;right:-10%;width:500px;height:500px;border-radius:50%;background:radial-gradient(circle,rgba(99,102,241,0.15),transparent 70%);"></div>
+    <div style="position:absolute;bottom:-10%;left:-5%;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(244,114,182,0.1),transparent 70%);"></div>
+   </div>
+   <div style="position:relative;z-index:1;max-width:640px;margin:0 auto;padding:40px 20px;"><!-- Header -->
+    <div class="text-center" style="margin-bottom:36px;">
+     <h1 id="form-title" style="font-family:'Playfair Display',serif;font-size:32px;font-weight:700;color:#e2e8f0;margin:0 0 8px;">Application Form</h1>
+     <p id="form-subtitle" style="font-size:15px;color:#94a3b8;margin:0;">Complete each step to submit your application</p>
+    </div><!-- Progress -->
+    <div style="margin-bottom:32px;">
+     <div style="display:flex;justify-content:space-between;margin-bottom:10px;"><span id="step-label" style="font-size:13px;font-weight:500;color:#818cf8;">Step 1 of 4</span> <span id="step-name" style="font-size:13px;color:#64748b;">Personal Info</span>
+     </div>
+     <div style="height:6px;border-radius:3px;background:#1e293b;overflow:hidden;">
+      <div id="progress-bar" class="progress-fill" style="height:100%;width:25%;border-radius:3px;background:linear-gradient(90deg,#818cf8,#a78bfa);"></div>
+     </div>
+     <div style="display:flex;justify-content:space-between;margin-top:10px;">
+      <div class="step-dot" data-step="0" style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:#818cf8;color:#fff;cursor:pointer;transition:all 0.3s;">
+       1
+      </div>
+      <div class="step-dot" data-step="1" style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:#1e293b;color:#64748b;cursor:pointer;transition:all 0.3s;">
+       2
+      </div>
+      <div class="step-dot" data-step="2" style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:#1e293b;color:#64748b;cursor:pointer;transition:all 0.3s;">
+       3
+      </div>
+      <div class="step-dot" data-step="3" style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:#1e293b;color:#64748b;cursor:pointer;transition:all 0.3s;">
+       4
+      </div>
+     </div>
+    </div><!-- Form Card -->
+    <div style="background:#1e293b;border-radius:16px;padding:32px;border:1px solid #334155;"><!-- Toast -->
+     <div id="toast" style="display:none;padding:12px 16px;border-radius:10px;margin-bottom:16px;font-size:14px;font-weight:500;"></div>
+     <form id="multi-form" novalidate><!-- Step 1: Personal -->
+      <div class="step-panel active" data-panel="0">
+       <h2 style="font-family:'Playfair Display',serif;font-size:22px;font-weight:600;color:#e2e8f0;margin:0 0 4px;">Personal Information</h2>
+       <p style="font-size:14px;color:#64748b;margin:0 0 24px;">Tell us about yourself</p>
+       <div style="margin-bottom:20px;"><label for="full_name" style="display:block;font-size:13px;font-weight:500;color:#94a3b8;margin-bottom:6px;">Full Name *</label> <input type="text" id="full_name" name="full_name" placeholder="John Doe" required style="width:100%;padding:12px 16px;border-radius:10px;border:1px solid #334155;background:#0f1729;color:#e2e8f0;font-size:15px;font-family:inherit;transition:border 0.2s;" onfocus="this.style.borderColor='#818cf8'" onblur="this.style.borderColor='#334155'"> <span class="err-msg" style="display:none;font-size:12px;color:#f87171;margin-top:4px;"></span>
+       </div>
+       <div style="margin-bottom:20px;"><label for="email" style="display:block;font-size:13px;font-weight:500;color:#94a3b8;margin-bottom:6px;">Email Address *</label> <input type="email" id="email" name="email" placeholder="john@example.com" required style="width:100%;padding:12px 16px;border-radius:10px;border:1px solid #334155;background:#0f1729;color:#e2e8f0;font-size:15px;font-family:inherit;transition:border 0.2s;" onfocus="this.style.borderColor='#818cf8'" onblur="this.style.borderColor='#334155'"> <span class="err-msg" style="display:none;font-size:12px;color:#f87171;margin-top:4px;"></span>
+       </div>
+       <div style="margin-bottom:20px;"><label for="phone" style="display:block;font-size:13px;font-weight:500;color:#94a3b8;margin-bottom:6px;">Phone Number</label> <input type="tel" id="phone" name="phone" placeholder="+1 (555) 000-0000" style="width:100%;padding:12px 16px;border-radius:10px;border:1px solid #334155;background:#0f1729;color:#e2e8f0;font-size:15px;font-family:inherit;transition:border 0.2s;" onfocus="this.style.borderColor='#818cf8'" onblur="this.style.borderColor='#334155'">
+       </div>
+      </div><!-- Step 2: Professional -->
+      <div class="step-panel" data-panel="1">
+       <h2 style="font-family:'Playfair Display',serif;font-size:22px;font-weight:600;color:#e2e8f0;margin:0 0 4px;">Professional Details</h2>
+       <p style="font-size:14px;color:#64748b;margin:0 0 24px;">Your work background</p>
+       <div style="margin-bottom:20px;"><label for="company" style="display:block;font-size:13px;font-weight:500;color:#94a3b8;margin-bottom:6px;">Company / Organization *</label> <input type="text" id="company" name="company" placeholder="Acme Corp" required style="width:100%;padding:12px 16px;border-radius:10px;border:1px solid #334155;background:#0f1729;color:#e2e8f0;font-size:15px;font-family:inherit;transition:border 0.2s;" onfocus="this.style.borderColor='#818cf8'" onblur="this.style.borderColor='#334155'"> <span class="err-msg" style="display:none;font-size:12px;color:#f87171;margin-top:4px;"></span>
+       </div>
+       <div style="margin-bottom:20px;"><label for="role" style="display:block;font-size:13px;font-weight:500;color:#94a3b8;margin-bottom:6px;">Role / Position *</label> <input type="text" id="role" name="role" placeholder="Product Designer" required style="width:100%;padding:12px 16px;border-radius:10px;border:1px solid #334155;background:#0f1729;color:#e2e8f0;font-size:15px;font-family:inherit;transition:border 0.2s;" onfocus="this.style.borderColor='#818cf8'" onblur="this.style.borderColor='#334155'"> <span class="err-msg" style="display:none;font-size:12px;color:#f87171;margin-top:4px;"></span>
+       </div>
+       <div style="margin-bottom:20px;"><label for="experience" style="display:block;font-size:13px;font-weight:500;color:#94a3b8;margin-bottom:6px;">Years of Experience *</label> <select id="experience" name="experience" required style="width:100%;padding:12px 16px;border-radius:10px;border:1px solid #334155;background:#0f1729;color:#e2e8f0;font-size:15px;font-family:inherit;transition:border 0.2s;cursor:pointer;" onfocus="this.style.borderColor='#818cf8'" onblur="this.style.borderColor='#334155'"> <option value="" disabled selected>Select experience</option> <option value="0-2">0–2 years</option> <option value="3-5">3–5 years</option> <option value="6-10">6–10 years</option> <option value="10+">10+ years</option> </select> <span class="err-msg" style="display:none;font-size:12px;color:#f87171;margin-top:4px;"></span>
+       </div>
+      </div><!-- Step 3: Additional -->
+      <div class="step-panel" data-panel="2">
+       <h2 style="font-family:'Playfair Display',serif;font-size:22px;font-weight:600;color:#e2e8f0;margin:0 0 4px;">Additional Info</h2>
+       <p style="font-size:14px;color:#64748b;margin:0 0 24px;">Help us understand your goals</p>
+       <div style="margin-bottom:20px;"><label for="interest" style="display:block;font-size:13px;font-weight:500;color:#94a3b8;margin-bottom:6px;">Area of Interest *</label> <select id="interest" name="interest" required style="width:100%;padding:12px 16px;border-radius:10px;border:1px solid #334155;background:#0f1729;color:#e2e8f0;font-size:15px;font-family:inherit;transition:border 0.2s;cursor:pointer;" onfocus="this.style.borderColor='#818cf8'" onblur="this.style.borderColor='#334155'"> <option value="" disabled selected>Select area</option> <option value="Design">Design</option> <option value="Engineering">Engineering</option> <option value="Marketing">Marketing</option> <option value="Product">Product</option> <option value="Other">Other</option> </select> <span class="err-msg" style="display:none;font-size:12px;color:#f87171;margin-top:4px;"></span>
+       </div>
+       <div style="margin-bottom:20px;"><label for="message" style="display:block;font-size:13px;font-weight:500;color:#94a3b8;margin-bottom:6px;">Message</label> <textarea id="message" name="message" rows="4" placeholder="Anything else you'd like us to know..." style="width:100%;padding:12px 16px;border-radius:10px;border:1px solid #334155;background:#0f1729;color:#e2e8f0;font-size:15px;font-family:inherit;resize:vertical;transition:border 0.2s;" onfocus="this.style.borderColor='#818cf8'" onblur="this.style.borderColor='#334155'"></textarea>
+       </div>
+      </div><!-- Step 4: Review -->
+      <div class="step-panel" data-panel="3">
+       <h2 style="font-family:'Playfair Display',serif;font-size:22px;font-weight:600;color:#e2e8f0;margin:0 0 4px;">Review &amp; Submit</h2>
+       <p style="font-size:14px;color:#64748b;margin:0 0 24px;">Please verify your information</p>
+       <div id="summary" style="display:flex;flex-direction:column;gap:12px;"></div>
+      </div><!-- Success -->
+      <div id="success-panel" style="display:none;text-align:center;padding:40px 0;">
+       <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#818cf8,#a78bfa);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;"><i data-lucide="check" style="width:32px;height:32px;color:#fff;"></i>
+       </div>
+       <h2 style="font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:#e2e8f0;margin:0 0 8px;">Submitted!</h2>
+       <p style="font-size:15px;color:#94a3b8;margin:0 0 24px;">Your application has been saved successfully.</p><button type="button" id="new-form-btn" style="padding:12px 28px;border-radius:10px;border:none;background:#818cf8;color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;transition:background 0.2s;">Submit Another</button>
+      </div><!-- Navigation -->
+      <div id="nav-buttons" style="display:flex;justify-content:space-between;margin-top:28px;"><button type="button" id="prev-btn" style="display:none;padding:12px 24px;border-radius:10px;border:1px solid #334155;background:transparent;color:#94a3b8;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:6px;" onmouseenter="this.style.borderColor='#818cf8';this.style.color='#e2e8f0'" onmouseleave="this.style.borderColor='#334155';this.style.color='#94a3b8'"> <i data-lucide="arrow-left" style="width:16px;height:16px;"></i> Back </button>
+       <div style="flex:1;"></div><button type="button" id="next-btn" style="padding:12px 28px;border-radius:10px;border:none;background:linear-gradient(135deg,#818cf8,#a78bfa);color:#fff;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:6px;box-shadow:0 4px 15px rgba(129,140,248,0.3);" onmouseenter="this.style.transform='translateY(-1px)'" onmouseleave="this.style.transform='translateY(0)'"> Next <i data-lucide="arrow-right" style="width:16px;height:16px;"></i> </button>
+      </div>
+     </form>
+    </div><!-- Autosave indicator -->
+    <div id="autosave-indicator" style="text-align:center;margin-top:16px;font-size:12px;color:#475569;display:none;"><i data-lucide="save" style="width:12px;height:12px;display:inline;vertical-align:middle;margin-right:4px;"></i> <span id="autosave-text">Progress saved</span>
+    </div>
+   </div>
+  </div>
+  <script>
+  const STEP_NAMES = ['Personal Info', 'Professional', 'Additional', 'Review'];
+  const STEP_FIELDS = [
+    ['full_name', 'email'],
+    ['company', 'role', 'experience'],
+    ['interest'],
+    []
+  ];
+  const FIELD_LABELS = { full_name:'Full Name', email:'Email', phone:'Phone', company:'Company', role:'Role', experience:'Experience', interest:'Interest', message:'Message' };
+
+  let currentStep = 0;
+  let formData = {};
+  let submittedRecords = [];
+  let isSubmitting = false;
+  let autosaveTimer = null;
+
+  // Autosave to localStorage
+  function autosave() {
+    const data = gatherFormData();
+    localStorage.setItem('multistep_autosave', JSON.stringify({ step: currentStep, data }));
+    const ind = document.getElementById('autosave-indicator');
+    ind.style.display = 'block';
+    document.getElementById('autosave-text').textContent = 'Progress saved';
+    clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(() => { ind.style.display = 'none'; }, 2000);
+  }
+
+  function restoreAutosave() {
+    try {
+      const saved = JSON.parse(localStorage.getItem('multistep_autosave'));
+      if (!saved) return;
+      const fields = ['full_name','email','phone','company','role','experience','interest','message'];
+      fields.forEach(f => {
+        if (saved.data[f] && document.getElementById(f)) document.getElementById(f).value = saved.data[f];
+      });
+      if (saved.step > 0) { goToStep(saved.step, 1); }
+    } catch(e) {}
+  }
+
+  function gatherFormData() {
+    return {
+      full_name: document.getElementById('full_name').value.trim(),
+      email: document.getElementById('email').value.trim(),
+      phone: document.getElementById('phone').value.trim(),
+      company: document.getElementById('company').value.trim(),
+      role: document.getElementById('role').value.trim(),
+      experience: document.getElementById('experience').value,
+      interest: document.getElementById('interest').value,
+      message: document.getElementById('message').value.trim()
+    };
+  }
+
+  function validateStep(step) {
+    const fields = STEP_FIELDS[step];
+    let valid = true;
+    fields.forEach(f => {
+      const el = document.getElementById(f);
+      const errEl = el.parentElement.querySelector('.err-msg');
+      const val = el.value.trim();
+      let msg = '';
+      if (!val) msg = 'This field is required';
+      else if (f === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) msg = 'Please enter a valid email';
+      if (msg) {
+        valid = false;
+        el.style.borderColor = '#f87171';
+        el.classList.add('field-error');
+        if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
+        setTimeout(() => el.classList.remove('field-error'), 400);
+      } else {
+        el.style.borderColor = '#334155';
+        if (errEl) { errEl.style.display = 'none'; }
+      }
+    });
+    return valid;
+  }
+
+  function goToStep(target, direction) {
+    if (target < 0 || target > 3) return;
+    const panels = document.querySelectorAll('.step-panel');
+    const currentPanel = panels[currentStep];
+    const targetPanel = panels[target];
+
+    currentPanel.classList.remove('active');
+    currentPanel.classList.add(direction > 0 ? 'exit-left' : 'exit-right');
+
+    setTimeout(() => {
+      currentPanel.classList.remove('exit-left', 'exit-right');
+      currentPanel.style.display = 'none';
+      targetPanel.style.display = 'block';
+      targetPanel.classList.add('active');
+      currentStep = target;
+      updateUI();
+      if (target === 3) buildSummary();
+    }, 280);
+  }
+
+  function updateUI() {
+    document.getElementById('step-label').textContent = `Step ${currentStep + 1} of 4`;
+    document.getElementById('step-name').textContent = STEP_NAMES[currentStep];
+    document.getElementById('progress-bar').style.width = `${(currentStep + 1) * 25}%`;
+
+    document.querySelectorAll('.step-dot').forEach((dot, i) => {
+      if (i < currentStep) { dot.style.background = '#818cf8'; dot.style.color = '#fff'; }
+      else if (i === currentStep) { dot.style.background = '#818cf8'; dot.style.color = '#fff'; }
+      else { dot.style.background = '#1e293b'; dot.style.color = '#64748b'; }
+    });
+
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+    prevBtn.style.display = currentStep === 0 ? 'none' : 'flex';
+
+    if (currentStep === 3) {
+      nextBtn.innerHTML = `<i data-lucide="send" style="width:16px;height:16px;"></i> <span id="submit-text">${window.elementSdk?.config?.submit_button_text || 'Submit'}</span>`;
+    } else {
+      nextBtn.innerHTML = 'Next <i data-lucide="arrow-right" style="width:16px;height:16px;"></i>';
+    }
+    lucide.createIcons();
+  }
+
+  function buildSummary() {
+    const data = gatherFormData();
+    const summary = document.getElementById('summary');
+    const fields = ['full_name','email','phone','company','role','experience','interest','message'];
+    summary.innerHTML = fields.map(f => {
+      const val = data[f] || '—';
+      return `<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:12px 16px;background:#0f1729;border-radius:10px;border:1px solid #334155;">
+        <span style="font-size:13px;color:#64748b;min-width:100px;">${FIELD_LABELS[f]}</span>
+        <span style="font-size:14px;color:#e2e8f0;text-align:right;word-break:break-word;">${val}</span>
+      </div>`;
+    }).join('');
+  }
+
+  function showToast(msg, type) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.style.display = 'block';
+    toast.style.background = type === 'error' ? 'rgba(248,113,113,0.15)' : 'rgba(129,140,248,0.15)';
+    toast.style.color = type === 'error' ? '#f87171' : '#818cf8';
+    toast.style.border = `1px solid ${type === 'error' ? 'rgba(248,113,113,0.3)' : 'rgba(129,140,248,0.3)'}`;
+    toast.className = 'toast-enter';
+    setTimeout(() => {
+      toast.className = 'toast-exit';
+      setTimeout(() => { toast.style.display = 'none'; }, 300);
+    }, 3000);
+  }
+
+  async function submitForm() {
+    if (isSubmitting) return;
+    if (submittedRecords.length >= 999) {
+      showToast('Maximum submissions reached (999). Please delete some first.', 'error');
+      return;
+    }
+    isSubmitting = true;
+    const nextBtn = document.getElementById('next-btn');
+    nextBtn.disabled = true;
+    nextBtn.style.opacity = '0.6';
+    nextBtn.innerHTML = '<span style="display:inline-block;width:16px;height:16px;border:2px solid #fff;border-top-color:transparent;border-radius:50;animation:spin 0.6s linear infinite;"></span> Submitting...';
+
+    const data = gatherFormData();
+    data.submitted_at = new Date().toISOString();
+
+    const result = await window.dataSdk.create(data);
+    isSubmitting = false;
+    nextBtn.disabled = false;
+    nextBtn.style.opacity = '1';
+
+    if (result.isOk) {
+      localStorage.removeItem('multistep_autosave');
+      document.getElementById('nav-buttons').style.display = 'none';
+      document.querySelectorAll('.step-panel').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
+      const sp = document.getElementById('success-panel');
+      sp.style.display = 'block';
+      lucide.createIcons();
+    } else {
+      showToast('Failed to submit. Please try again.', 'error');
+      updateUI();
+    }
+  }
+
+  function resetForm() {
+    document.getElementById('multi-form').reset();
+    document.getElementById('success-panel').style.display = 'none';
+    document.getElementById('nav-buttons').style.display = 'flex';
+    const firstPanel = document.querySelector('[data-panel="0"]');
+    firstPanel.style.display = 'block';
+    firstPanel.classList.add('active');
+    currentStep = 0;
+    updateUI();
+    localStorage.removeItem('multistep_autosave');
+  }
+
+  // Event listeners
+  document.getElementById('next-btn').addEventListener('click', () => {
+    if (currentStep === 3) { submitForm(); return; }
+    if (!validateStep(currentStep)) return;
+    autosave();
+    goToStep(currentStep + 1, 1);
+  });
+
+  document.getElementById('prev-btn').addEventListener('click', () => {
+    autosave();
+    goToStep(currentStep - 1, -1);
+  });
+
+  document.getElementById('new-form-btn').addEventListener('click', resetForm);
+
+  document.querySelectorAll('.step-dot').forEach(dot => {
+    dot.addEventListener('click', () => {
+      const target = parseInt(dot.dataset.step);
+      if (target < currentStep) { goToStep(target, -1); }
+      else if (target > currentStep) {
+        // Validate all steps up to target
+        for (let i = currentStep; i < target; i++) {
+          if (!validateStep(i)) return;
+        }
+        goToStep(target, 1);
+      }
+    });
+  });
+
+  // Autosave on input
+  document.querySelectorAll('#multi-form input, #multi-form select, #multi-form textarea').forEach(el => {
+    el.addEventListener('input', () => { clearTimeout(autosaveTimer); autosaveTimer = setTimeout(autosave, 1000); });
+  });
+
+  document.getElementById('multi-form').addEventListener('submit', (e) => e.preventDefault());
+
+  // Element SDK
+  const defaultConfig = {
+    background_color: '#0f1729',
+    surface_color: '#1e293b',
+    text_color: '#e2e8f0',
+    primary_action: '#818cf8',
+    secondary_action: '#94a3b8',
+    font_family: 'DM Sans',
+    font_size: 15,
+    form_title: 'Application Form',
+    form_subtitle: 'Complete each step to submit your application',
+    submit_button_text: 'Submit'
+  };
+
+  async function onConfigChange(config) {
+    const bg = config.background_color || defaultConfig.background_color;
+    const surface = config.surface_color || defaultConfig.surface_color;
+    const text = config.text_color || defaultConfig.text_color;
+    const primary = config.primary_action || defaultConfig.primary_action;
+    const secondary = config.secondary_action || defaultConfig.secondary_action;
+    const font = config.font_family || defaultConfig.font_family;
+    const size = config.font_size || defaultConfig.font_size;
+
+    document.getElementById('app-wrapper').style.background = bg;
+    document.querySelector('[style*="background:#1e293b"]') || 0; // handled below
+
+    // Surface card
+    const card = document.querySelector('[style*="background:#1e293b"]');
+    if (card) { card.style.background = surface; card.style.borderColor = surface; }
+
+    // Title
+    const title = document.getElementById('form-title');
+    title.textContent = config.form_title || defaultConfig.form_title;
+    title.style.color = text;
+    title.style.fontFamily = `'Playfair Display', ${font}, serif`;
+    title.style.fontSize = `${size * 2.1}px`;
+
+    const subtitle = document.getElementById('form-subtitle');
+    subtitle.textContent = config.form_subtitle || defaultConfig.form_subtitle;
+    subtitle.style.color = secondary;
+    subtitle.style.fontFamily = `${font}, sans-serif`;
+    subtitle.style.fontSize = `${size}px`;
+
+    // Step label
+    document.getElementById('step-label').style.color = primary;
+    document.getElementById('step-name').style.color = secondary;
+
+    // Progress bar
+    document.getElementById('progress-bar').style.background = `linear-gradient(90deg, ${primary}, ${primary}cc)`;
+
+    // Dots
+    document.querySelectorAll('.step-dot').forEach((dot, i) => {
+      if (i <= currentStep) { dot.style.background = primary; dot.style.color = '#fff'; }
+    });
+
+    // Inputs
+    document.querySelectorAll('#multi-form input, #multi-form select, #multi-form textarea').forEach(el => {
+      el.style.background = bg;
+      el.style.color = text;
+      el.style.fontFamily = `${font}, sans-serif`;
+      el.style.fontSize = `${size}px`;
+    });
+
+    // Labels
+    document.querySelectorAll('#multi-form label').forEach(el => {
+      el.style.color = secondary;
+      el.style.fontFamily = `${font}, sans-serif`;
+      el.style.fontSize = `${size * 0.87}px`;
+    });
+
+    // Step headings
+    document.querySelectorAll('.step-panel h2').forEach(el => {
+      el.style.color = text;
+      el.style.fontFamily = `'Playfair Display', ${font}, serif`;
+      el.style.fontSize = `${size * 1.47}px`;
+    });
+    document.querySelectorAll('.step-panel > p').forEach(el => {
+      el.style.color = secondary;
+      el.style.fontSize = `${size * 0.93}px`;
+    });
+
+    // Next button
+    const nextBtn = document.getElementById('next-btn');
+    nextBtn.style.background = `linear-gradient(135deg, ${primary}, ${primary}cc)`;
+    nextBtn.style.fontFamily = `${font}, sans-serif`;
+
+    // Submit text
+    const st = document.getElementById('submit-text');
+    if (st) st.textContent = config.submit_button_text || defaultConfig.submit_button_text;
+
+    document.body.style.fontFamily = `${font}, sans-serif`;
+  }
+
+  window.elementSdk.init({
+    defaultConfig,
+    onConfigChange,
+    mapToCapabilities: (config) => ({
+      recolorables: [
+        { get: () => config.background_color || defaultConfig.background_color, set: (v) => { config.background_color = v; window.elementSdk.setConfig({ background_color: v }); } },
+        { get: () => config.surface_color || defaultConfig.surface_color, set: (v) => { config.surface_color = v; window.elementSdk.setConfig({ surface_color: v }); } },
+        { get: () => config.text_color || defaultConfig.text_color, set: (v) => { config.text_color = v; window.elementSdk.setConfig({ text_color: v }); } },
+        { get: () => config.primary_action || defaultConfig.primary_action, set: (v) => { config.primary_action = v; window.elementSdk.setConfig({ primary_action: v }); } },
+        { get: () => config.secondary_action || defaultConfig.secondary_action, set: (v) => { config.secondary_action = v; window.elementSdk.setConfig({ secondary_action: v }); } }
+      ],
+      borderables: [],
+      fontEditable: { get: () => config.font_family || defaultConfig.font_family, set: (v) => { config.font_family = v; window.elementSdk.setConfig({ font_family: v }); } },
+      fontSizeable: { get: () => config.font_size || defaultConfig.font_size, set: (v) => { config.font_size = v; window.elementSdk.setConfig({ font_size: v }); } }
+    }),
+    mapToEditPanelValues: (config) => new Map([
+      ['form_title', config.form_title || defaultConfig.form_title],
+      ['form_subtitle', config.form_subtitle || defaultConfig.form_subtitle],
+      ['submit_button_text', config.submit_button_text || defaultConfig.submit_button_text]
+    ])
+  });
+
+  // Data SDK
+  const dataHandler = {
+    onDataChanged(data) {
+      submittedRecords = data;
+    }
+  };
+
+  (async () => {
+    const result = await window.dataSdk.init(dataHandler);
+    if (!result.isOk) console.error('Data SDK init failed');
+    restoreAutosave();
+  })();
+
+  lucide.createIcons();
+</script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9e8a39eae62ea41c',t:'MTc3NTU3NzQyOC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
